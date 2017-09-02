@@ -1,5 +1,8 @@
 package api;
 
+import static com.fasterxml.jackson.annotation.JsonInclude.Include;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import generated.tables.records.ReceiptsRecord;
 
@@ -15,23 +18,20 @@ import java.sql.Time;
  * Any properties that you want exposed when this class is translated to JSON must be
  * annotated with {@link JsonProperty}
  */
+@JsonInclude(Include.NON_NULL)
 public class ReceiptResponse {
     @JsonProperty
     Integer id;
 
     @JsonProperty
-    String merchantName;
+    String merchant;
 
     @JsonProperty
-    BigDecimal value;
-
-    @JsonProperty
-    Time created;
+    BigDecimal amount;
 
     public ReceiptResponse(ReceiptsRecord dbRecord) {
-        this.merchantName = dbRecord.getMerchant();
-        this.value = dbRecord.getAmount();
-        this.created = dbRecord.getUploaded();
+        this.merchant = dbRecord.getMerchant();
+        this.amount = dbRecord.getAmount();
         this.id = dbRecord.getId();
     }
 }

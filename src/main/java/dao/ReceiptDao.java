@@ -34,4 +34,21 @@ public class ReceiptDao {
     public List<ReceiptsRecord> getAllReceipts() {
         return dsl.selectFrom(RECEIPTS).fetch();
     }
+
+    public List<ReceiptsRecord> checkTag(String tag, int receiptId){
+        return dsl.selectFrom(RECEIPTS).where(RECEIPTS.TAG.eq(tag)).and(RECEIPTS.ID.eq(receiptId)).fetch();
+
+    }
+
+    public void putTag(String tag, int receiptId) {
+        dsl.update(RECEIPTS)
+                .set(RECEIPTS.TAG, tag)
+                .where(RECEIPTS.ID.eq(receiptId))
+                .execute();
+    }
+
+    public List<ReceiptsRecord> getReceiptsWithTag(String tag) {
+        return dsl.selectFrom(RECEIPTS).where(RECEIPTS.TAG.eq(tag)).fetch();
+    }
+
 }
