@@ -31,7 +31,7 @@ public class TagsController {
 
     @PUT
     @Path("/{tag}")
-    @Consumes(MediaType.TEXT_PLAIN)
+    @Consumes(MediaType.APPLICATION_JSON)
     public String toggleTag(@PathParam("tag") String tagName, int receiptId) {
         List<ReceiptsRecord> receiptRecords = receiptDao.checkTag(tagName, receiptId);
 
