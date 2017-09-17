@@ -32,15 +32,13 @@ public class TagsController {
     @PUT
     @Path("/{tag}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public String toggleTag(@PathParam("tag") String tagName, int receiptId) {
+    public void toggleTag(@PathParam("tag") String tagName, int receiptId) {
         List<ReceiptsRecord> receiptRecords = receiptDao.checkTag(tagName, receiptId);
 
         if (!receiptRecords.isEmpty()) {
             receiptDao.putTag("", receiptId);
-            return "[found duplicate] tag name = " + tagName + ", receipt id = " + receiptId;
         } else {
             receiptDao.putTag(tagName, receiptId);
-            return "[no duplicate found] tag name = " + tagName + ", receipt id = " + receiptId;
         }
     }
 

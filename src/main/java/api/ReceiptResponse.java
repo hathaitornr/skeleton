@@ -24,14 +24,22 @@ public class ReceiptResponse {
     Integer id;
 
     @JsonProperty
+    Time uploadTime;
+
+    @JsonProperty
     String merchant;
 
     @JsonProperty
     BigDecimal amount;
 
+    @JsonProperty
+    String tag;
+
     public ReceiptResponse(ReceiptsRecord dbRecord) {
         this.merchant = dbRecord.getMerchant();
         this.amount = dbRecord.getAmount();
         this.id = dbRecord.getId();
+        this.uploadTime = dbRecord.getUploaded();
+        this.tag = dbRecord.getTag();
     }
 }

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="style.css" />
+    <script data-require="jquery@*" data-semver="3.1.1" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <style>
+        #container {border: 1px solid brown;}
+        H1 {float: left;}
+
+        .button{
+            background-color:#55A;
+            border: 1px solid #229;
+            width: 100px;
+            float: right;
+            font-size: 2em;
+            color: white;
+            text-align: center;
+        }
+
+        #receiptList {
+            border: 1px solid green;
+            clear: both;
+        }
+
+        .receipt {
+            background-color: #eee;
+            margin-bottom: 5px;
+        }
+    </style>
+    <script>
+        $(function() {
+            const api = "";
+
+            $.getJSON(api + "/receipts", function(receipts) {
+                processReceipts(receipts);
+            });
+
+            /**
+             * Add receipt handler
+             */
+            $(document).on("click", "#add-receipt", function() {
+                showReceiptEntry();
+            });
+
+            /**
+             * Save receipt handler
+             */
+            $(document).on("click", "#save-receipt", function() {
+                if ($("#merchant").val() === "") {
+                    displayAddReceiptStatus("Missing merchant name.");
+                } else {
+                    clearAddReceiptErrorMessage();
+                    var newReceipt = {
+                        merchant: $("#merchant").val(),
+                        amount: $("#amount").val()
+                    };
+                    addReceipt(newReceipt);
+                }
+            });
+
+            /**
+             * Cancel receipt handler
+             */
+            $(document).on("click", "#cancel-receipt", function() {
+                hideReceiptEntry();
+            });
+
+            /**
+             * Add tag handler
+             */
+            $(document).on("click", ".add-tag", function() {
+                if ($(this).siblings(".tag_input").length == 0) {
+                    $(this).after('<input class="tag_input">');
+                }
+            });
+
+            /**
+             * Key press handler
+             */
+            $(document).on("keypress", ".tag_input", function(key) {
+                if (key.which === 13) {
+                    var receiptId = $(this).siblings(".receipt-id").val();
+                    var tag = $(this).val();
+                    putTag(tag, receiptId);
+                }
+            });
+
+            /**
+             * Tag value handler
+             */
+            $(document).on("click", ".tagValue", function() {
+                var receiptId = $(this).parents().siblings(".receipt-id").val();
+                var tag = $(this).text();
+                putTag(tag, receiptId);
+            });
+
+        });
+
+        function processReceipts(receipts) {
+            $(".receipt").remove();
+            receipts.forEach(function(receipt) {
+                console.log(receipt);
+                var receiptContent = getReceiptContent(receipt);
+                $(receiptContent).appendTo($("#receiptList"));
+            });
+
+            console.log("merchant[0]: " + $('.merchant', $('.receipt')[0]).text());
+            console.log("amount[0]: " + $('.amount', $('.receipt')[0]).text());
+            console.log("tags[0]: " + $('.tags', $('.receipt')[0]).text());
+        }
+
+        /**
+         * Parses the content of the input list of receipts.
+         * @param receipt
+         */
+        function getReceiptContent(receipt) {
+            var amount = (receipt.amount) ? receipt.amount : "";
+            var tag = (receipt.tag) ? '<div class="tagValue">' + receipt.tag + '</div>' : "";
+
+            return '<div class="receipt">' +
+                '<input type="hidden" class="receipt-id" value=' + receipt.id + '>' +
+                '<div class="time">' + receipt.uploadTime + '</div>' +
+                '<div class="merchant">' + receipt.merchant + '</div>' +
+                '<div class="amount">' + amount + '</div>' +
+                '<div class="tags">' + tag + '</div>' +
+                '<button class="add-tag">Add tag</button>' +
+                '</div>';
+        }
+
+        function addReceipt(receipt) {
+            $.ajax({
+                type: "POST",
+                url: "/receipts",
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(receipt),
+                success: function(response) {
+                    displayAddReceiptStatus("New receipt successfully created.");
+                    refreshReceipts();
+                },
+                error: function(response) {
+                    displayAddReceiptStatus(response.responseJSON.message);
+                }
+            });
+        }
+
+        function showReceiptEntry() {
+            var receiptEntry =
+                '<div id="receipt-entry" class=".receipt-entry"> \
+                    <form> \
+                        <input type="text" id="merchant" name="merchant"> \
+                        <input type="text" id="amount" name="amount"> \
+                    </form> \
+                    <button id="save-receipt">Save</button> \
+                    <button id="cancel-receipt">Cancel</button> \
+                </div>';
+
+            if ($("#receipt-entry").length == 0) {
+                $(receiptEntry).appendTo($("#receipt-entry-container"));
+            }
+        }
+
+        function hideReceiptEntry() {
+            $("#receipt-entry").remove();
+        }
+
+        function refreshReceipts() {
+            $.ajax({
+                type: "GET",
+                url: "/receipts",
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                success: function(response) {
+                    processReceipts(response);
+                }
+            });
+        }
+
+        function putTag(tag, receiptId) {
+            $.ajax({
+                type: "PUT",
+                url: "/tags/" + tag,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(receiptId),
+                success: function(response) {
+                    displayAddReceiptStatus("Receipt [" + receiptId + "] has been successfully tagged with [" + tag + "]");
+                    displayTagValue(tag, receiptId);
+                },
+                error: function(response) {
+                    displayAddReceiptStatus("Failed to tag [" + receiptId + "] with [" + tag + "]");
+                }
+            });
+        }
+
+        function displayTagValue(tag, receiptId) {
+            $(".receipt-id[value='" + receiptId + "']").siblings(".tag_input").remove();
+            refreshReceipts();
+        }
+
+        function displayAddReceiptStatus(status) {
+            $("#status").text(status);
+        }
+
+        function clearAddReceiptErrorMessage() {
+            $("#status").text("");
+        }
+    </script>
+</head>
+
+<body>
+<DIV id="container">
+    <div id="receipt-entry-container"></div>
+    <h1>My receipts</h1>
+    <button id="add-receipt" type="button" class="button">+</button>
+    <div id="receiptList"></div>
+</DIV>
+<div id="status"></div>
+</body>
+
+</html>
