@@ -5,6 +5,9 @@
 # This is a cache for gradle
 .gradle
 
+# Gecko log from UI testing
+geckodriver.log
+
 # These are compiled artifacts
 /build
 

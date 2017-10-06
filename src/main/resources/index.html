@@ -14,11 +14,59 @@
             border: 1px solid black;
         }
 
+        .row-header {
+            font-weight: bold;
+        }
+
+        .row {
+            clear: both;
+        }
+
+        .time {
+            float: left;
+            text-align: left;
+            min-width: 120px;
+        }
+
+        .merchant {
+            float: left;
+            text-align: left;
+            min-width: 200px;
+        }
+
+        .amount {
+            float: left;
+            text-align: left;
+            min-width: 200px;
+        }
+
+        .tags {
+            float: left;
+            text-align: left;
+            max-width: 50px;
+            min-width: 50px;
+        }
+
+        .add-tag {
+            float: left;
+            text-align: left;
+            max-width: 120px;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .status {
+            font-weight: bold;
+            margin-top: 30px;
+        }
+
         #vidwrap {
             margin: 20px 0;
         }
 
-        #start, #snapshot {
+        #start-camera, #take-pic {
             height: 3em;
         }
     </style>
@@ -26,12 +74,33 @@
         let imageCapture;
         let track;
 
+        function showVideoComponent() {
+            var videoComponent =
+                '<div id="video-component"> \
+                    <button id="start-camera" type="button" class="button">Start the camera</button> \
+                    <button id="take-pic" type="button" disabled="true" class="button">Take a picture</button> \
+                    <br> \
+                    <div id="vidwrap"> \
+                        <video autoplay></video> \
+                    </div> \
+                </div>';
+
+            if ($("#video-component").length == 0) {
+                $(videoComponent).appendTo($("#camera-area"));
+            }
+        }
+
+        function hideVideoComponent() {
+            $("#video-component").remove();
+        }
+
         function attachMediaStream(mediaStream) {
             $('video')[0].srcObject = mediaStream;
 
             // Saving the track allows us to capture a photo
             track = mediaStream.getVideoTracks()[0];
             imageCapture = new ImageCapture(track);
+            $('#take-pic').prop('disabled', false);
         }
 
         function startVideo() {
@@ -41,7 +110,7 @@
                     navigator.mediaDevices.getUserMedia({video: true})
                         .then(attachMediaStream)
                         .catch(error => {
-                            console.log('you are fooked');
+                            console.log('Something went wrong with the camera');
                         })
                 })
         }
@@ -56,6 +125,8 @@
 
                 canvas.getContext('2d').drawImage(img, 0, 0);
                 const base64EncodedImageData = canvas.toDataURL('image/png').split(',')[1];
+                $("#take-pic").val("Processing...");
+                $("#take-pic").prop('disabled', true);
                 $.ajax({
                     url: "/images",
                     type: "POST",
@@ -64,7 +135,8 @@
                     success: function() {},
                })
                 .then(response => {
-                    $('video').after(`<div>got response: <pre>${JSON.stringify(response)}</pre></div>`);
+                    populateReceiptEntryInput(response);
+                    $('#take-pic').prop('disabled', false);
                 })
                 .always(() => console.log('request complete'));
 
@@ -76,20 +148,236 @@
 
 
         $(function () {
-            $('#start').on('click', startVideo);
-            $('video').on('play', () => $('#snapshot').prop('disabled', false));
-            $('#snapshot').on('click', takeSnapshot);
+            const api = "";
+
+            $.getJSON(api + "/receipts", function(receipts) {
+                processReceipts(receipts);
+            });
+
+            /**
+             * Camera trigger handler
+             */
+            $(document).on("click", "#camera-trigger", function() {
+                showVideoComponent();
+            });
+
+            /**
+             * Start video camera
+             */
+            $(document).on("click", "#start-camera", function() {
+                startVideo();
+            });
+
+            /**
+             * Take picture
+             */
+            $(document).on("click", "#take-pic", function() {
+                takeSnapshot();
+            });
+
+            /**
+             * Add receipt handler
+             */
+            $(document).on("click", "#add-receipt", function() {
+                showReceiptEntry();
+            });
+
+            /**
+             * Save receipt handler
+             */
+            $(document).on("click", "#save-receipt", function() {
+                if ($("#merchant").val() === "") {
+                    displayAddReceiptStatus("Missing merchant name.");
+                } else {
+                    clearAddReceiptErrorMessage();
+                    var newReceipt = {
+                        merchant: $("#merchant").val(),
+                        amount: $("#amount").val()
+                    };
+                    addReceipt(newReceipt);
+                }
+            });
+
+            /**
+             * Cancel receipt handler
+             */
+            $(document).on("click", "#cancel-receipt", function() {
+                hideReceiptEntry();
+                hideVideoComponent();
+            });
+
+            /**
+             * Add tag handler
+             */
+            $(document).on("click", ".add-tag", function() {
+                if ($(this).siblings(".tag_input").length == 0) {
+                    $(this).after('<input class="tag_input">');
+                }
+            });
+
+            /**
+             * Key press handler
+             */
+            $(document).on("keypress", ".tag_input", function(key) {
+                if (key.which === 13) {
+                    var receiptId = $(this).siblings(".receipt-id").val();
+                    var tag = $(this).val();
+                    putTag(tag, receiptId);
+                }
+            });
+
+            /**
+             * Tag value handler
+             */
+            $(document).on("click", ".tagValue", function() {
+                var receiptId = $(this).parents().siblings(".receipt-id").val();
+                var tag = $(this).text();
+                putTag(tag, receiptId);
+            });
+
         });
+
+        function processReceipts(receipts) {
+            $(".receipt").remove();
+            receipts.forEach(function(receipt) {
+                console.log(receipt);
+                var receiptContent = getReceiptContent(receipt);
+                $(receiptContent).appendTo($("#receiptList"));
+            });
+        }
+
+        /**
+         * Parses the content of the input list of receipts.
+         * @param receipt
+         */
+        function getReceiptContent(receipt) {
+            var amount = (receipt.amount) ? receipt.amount : "";
+            var tag = (receipt.tag) ? '<div class="tagValue">' + receipt.tag + '</div>' : "";
+
+            return '<div class="row">' +
+                    '<div class="receipt">' +
+                        '<input type="hidden" class="receipt-id" value=' + receipt.id + '>' +
+                        '<div class="time">' + receipt.uploadTime + '</div>' +
+                        '<div class="merchant">' + receipt.merchant + '</div>' +
+                        '<div class="amount">' + amount + '</div>' +
+                        '<div class="tags">' + tag + '</div>' +
+                        '<button class="add-tag">Add tag</button>' +
+                    '</div>' +
+                '</div>';
+        }
+
+        function addReceipt(receipt) {
+            $.ajax({
+                type: "POST",
+                url: "/receipts",
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(receipt),
+                success: function(response) {
+                    displayAddReceiptStatus("New receipt successfully created.");
+                    refreshReceipts();
+                },
+                error: function(response) {
+                    displayAddReceiptStatus(response.responseJSON.message);
+                }
+            });
+        }
+
+        function showReceiptEntry(merchantName, amount) {
+            var receiptEntry =
+                '<div id="receipt-entry" class=".receipt-entry"> \
+                    <form> \
+                        <input type="text" id="merchant" name="merchant"> \
+                        <input type="text" id="amount" name="amount"> \
+                    </form> \
+                    <button id="save-receipt">Save</button> \
+                    <button id="cancel-receipt">Cancel</button> \
+                </div>';
+
+            if ($("#receipt-entry").length == 0) {
+                $(receiptEntry).appendTo($("#receipt-entry-container"));
+            }
+
+            $("#merchant").val(merchantName);
+            $("#amount").val(amount);
+        }
+
+        function hideReceiptEntry() {
+            $("#receipt-entry").remove();
+        }
+
+        /**
+         * Automatically populates the receipt entry text input with the merchant and the corresponding amount.
+         * @param input the input object containing the merchant and amount
+         */
+        function populateReceiptEntryInput(input) {
+            showReceiptEntry(input.merchantName, input.amount);
+        }
+
+        function refreshReceipts() {
+            $.ajax({
+                type: "GET",
+                url: "/receipts",
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                success: function(response) {
+                    processReceipts(response);
+                }
+            });
+        }
+
+        function putTag(tag, receiptId) {
+            $.ajax({
+                type: "PUT",
+                url: "/tags/" + tag,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(receiptId),
+                success: function(response) {
+                    displayAddReceiptStatus("Receipt [" + receiptId + "] has been successfully tagged with [" + tag + "]");
+                    displayTagValue(tag, receiptId);
+                },
+                error: function(response) {
+                    displayAddReceiptStatus("Failed to tag [" + receiptId + "] with [" + tag + "]");
+                }
+            });
+        }
+
+        function displayTagValue(tag, receiptId) {
+            $(".receipt-id[value='" + receiptId + "']").siblings(".tag_input").remove();
+            refreshReceipts();
+        }
+
+        function displayAddReceiptStatus(status) {
+            $("#status").text(status);
+        }
+
+        function clearAddReceiptErrorMessage() {
+            $("#status").text("");
+        }
     </script>
 </head>
 
 <body>
-<button id="start">Start Video</button>
-<button id="snapshot" disabled="true">Take a Snapshot!</button>
-<br>
-<div id="vidwrap">
-    <video autoplay></video>
-    </div>
+    <div id="camera-area"></div>
+    <DIV id="container">
+        <div id="receipt-entry-container"></div>
+        <h1>My Receipt Service</h1>
+        <button id="add-receipt" type="button" class="button">+</button>
+        <button id="camera-trigger" type="button" class="button">Camera</button>
+        <div class="time row-header">Time</div>
+        <div class="merchant row-header">Merchant</div>
+        <div class="amount row-header">Amount</div>
+        <div class="tags row-header">Tags</div>
+        <div id="receiptList" class="center"></div>
+    </DIV>
+    <div id="status" class="status row center"></div>
 </body>
 
 </html>
